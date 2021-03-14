@@ -1,84 +1,127 @@
 <?php
-function br(){
-  echo "<br>";
-}
-
-$dsn = 'mysql:host=localhost;dbname=blogApp;charset=utf8';
-$user = 'blog_user';
-$pass = 'ZeoGAHjIUogeQCd2';
+namespace Blog\Dbc;
 
 session_start();
 
-$_SESSION["dsn"] = 'mysql:host=localhost;dbname=blogApp;charset=utf8';
-$_SESSION["user"] = 'blog_user';
-$_SESSION["pass"] = 'ZeoGAHjIUogeQCd2';
+function br() {
+  echo "<br>";
+}
 
-try{
-  $dbh = new PDO($dsn, $user, $pass,[
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-  ]);
-  // echo '接続成功';
-  // $dbh = null;
-  // br();
+function dbConnect() {
+  
+  $_SESSION["dsn"] = 'mysql:host=localhost;dbname=blogApp;charset=utf8';
+  $_SESSION["user"] = 'blog_user';
+  $_SESSION["pass"] = 'ZeoGAHjIUogeQCd2';
+  
+  try{
+    $dbh = new \PDO($_SESSION["dsn"], $_SESSION["user"], $_SESSION["pass"], [
+      \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+    ]);
+  } catch(\PDOException $e){
+    echo '例外発生'.$e->getMessage();
+    br();
+  }
+  
+  return $dbh;
+}
 
+
+function getAllBlog() {
+  $dbh = dbConnect();
   $sql = "select * from blog";
   $stmt = $dbh -> query($sql);
-  // print_r($stmt);
-  // br();
+  $result = $stmt -> fetchAll(\PDO::FETCH_ASSOC);
+  return $result;
+}
 
-  $result = $stmt -> fetchAll(PDO::FETCH_ASSOC);
-  // print_r($result);
-  // br();
+$blogData = getAllBlog();
+
+function setBlogCategory($category) {
+  switch ($category) {
+    case "1":
+      return "ブログ";
+      break;
+    
+    default:
+      return "カテゴリが設定されていません";
+      break;
+  }
+}
+
+
+// detail ↓
+
+function detailBlog($id){
   
-}catch(PDOException $e){
-  echo '例外発生'.$e->getMessage();
-  br();
+  if(empty($id)){
+    echo '<p><a href="index.php">ブログ一覧に戻る</a></p>';
+    exit("idが不正です。");
+  }
+  
+  // function dbConnect() {
+  //   try{
+  //     $dbh = new \PDO($_SESSION["dsn"], $_SESSION["user"], $_SESSION["pass"], [
+  //       \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+  //       \PDO::ATTR_EMULATE_PREPARES => false,
+  //     ]);
+  //   } catch(\PDOException $e){
+  //     echo '例外発生'.$e->getMessage();
+  //     br();
+  //   }
+  //   return $dbh;
+  // }
+  
+  function getBlog($id){
+    $dbh = dbConnect();
+    $sql = "SELECT * FROM blog WHERE id = :id";
+    $stmt = $dbh -> prepare($sql);
+    $stmt -> bindValue(":id", (int)$id, \PDO::PARAM_INT);
+    // $stmt -> bindValue(:id, $id, 型);
+    $stmt->execute();
+  
+    $result = $stmt -> fetch(\PDO::FETCH_ASSOC);
+    return $result;
+  }
+  
+  
+  $blogData = getBlog($id);
+  
+  if(!$blogData){
+    echo '<p><a href="index.php">ブログ一覧に戻る</a></p>';
+    exit("ブログがありません。");
+  }
+  
+  // function setBlogCategory($category) {
+  //   switch ($category) {
+  //     case "1":
+  //       return "ブログ";
+  //       break;
+      
+  //     default:
+  //       return "カテゴリが設定されていません";
+  //       break;
+  //   }
+  // }
+    
+  return $blogData;
+  
+
+}  
+
+// post
+function postBlog($title, $content, $status) {
+  $dbh = dbConnect();
+  $sql = "INSERT INTO `blog` (`id`, `title`, `content`, `category`, `post_at`, `status`) VALUES (NULL, '$title', '$content', '1', CURRENT_TIMESTAMP, '$status');";
+  $dbh -> query($sql);
+  
+  header("location:index.php");
+}
+
+function check($title, $content){
+  if($title === "" or $content === ""){
+    header("location:index.php");
+    exit();
+  }
 }
 
 ?>
-
-<!DOCTYPE html>
-<html lang="ja">
-
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ブログ一覧</title>
-</head>
-
-<body>
-  <h2>ブログ一覧</h2>
-  <table border="1">
-    <tr>
-      <th>ID</th>
-      <th>タイトル</th>
-      <th>内容</th>
-      <th>カテゴリ</th>
-      <th>投稿日時</th>
-      <th>公開・非公開</th>
-    </tr>
-    <?php foreach ($result as $column): ?>
-    <tr>
-      <td><?php echo $column["id"]; ?></td>
-      <td><?php echo $column["title"]; ?></td>
-      <td><?php echo $column["content"]; ?></td>
-      <td><?php echo $column["category"]; ?></td>
-      <td><?php echo $column["post_at"]; ?></td>
-      <td><?php echo $column["status"] == 1 ? "公開" : "非公開" ; ?></td>
-    </tr>
-    <?php endforeach; ?>
-  </table>
-  <h2>ブログ投稿</h2>
-  <form action="post.php" method="post">
-    <p>ブログタイトル<input name="title" type="text"></p>
-    <p>内容</p>
-    <textarea name="content" cols="30" rows="10"></textarea>
-    <label>
-      <p><input type="checkbox" name="status">非公開にする。</p>
-    </label>
-    <button type="submit">投稿</button>
-  </form>
-</body>
-
-</html>
